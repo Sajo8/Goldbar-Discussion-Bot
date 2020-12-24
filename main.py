@@ -1,16 +1,23 @@
 import globals
+from discussion_question_manager import DiscussionQuestionManager
 
+import pickle
 import discord
 from discord.channel import TextChannel
 from discord.message import Message
+from discord.ext import tasks
 import logging
 import os
-import json
+
 
 class Client(discord.Client):
 
+    manager: DiscussionQuestionManager = DiscussionQuestionManager()
+
     async def on_ready(self):
-        print('Logged on as', self.user)
+        print("READY!!")
+        self.send_message.start()
+
 
     async def on_raw_reaction_add(self, reaction: discord.RawReactionActionEvent):
         if reaction.event_type != "REACTION_ADD":
@@ -19,39 +26,33 @@ class Client(discord.Client):
         if reaction.emoji.name != "✅":
             return
         
-        if reaction.member.id not in globals.ALLOWED_IDS:
-            return
-        
-        # if we're in the live server
-        if reaction.channel_id != globals.TEST_CHANNEL:
-            # only allow Kinjo to approve messages
+        # if we're testing, allow me and kinjo
+        if globals.TEST_MODE:
+            if reaction.member.id not in globals.ALLOWED_IDS:
+                return
+        # if we're live, only allow kinjo
+        else:
             if reaction.member.id != globals.KINJO_ID:
                 return
         
-        channel: TextChannel = self.get_channel(reaction.channel_id)
+        channel: TextChannel = await self.fetch_channel(reaction.channel_id)
         msg: Message = await channel.fetch_message(reaction.message_id)
 
-        await self.add_message(msg)
-
-    async def add_message(self, msg: Message):
-        msg_info_dict = {
-            "author": f"<@{msg.author.id}>",
-            "content": msg.content,
-            "date": msg.created_at.strftime("%d %b %Y")
-        }
-
-        await msg.channel.send(str(msg_info_dict))
-
-        with open("messages.json", "a") as f:
-            json.dump(msg_info_dict, f, indent=4)
+        # add new question to manager, and add save manager to file
+        self.manager.add_question_from_msg(msg)
+        with open("questions.txt", "wb") as f:
+            pickle.dump(self.manager, f)
     
-    # TODO
-    # look into better persistent storage
-        # maybe make an object and pickle that instead of doing dict
-        # save to some list? idk
-    # look into discord.py cogs or something to schedule sending messages 
+    # @tasks.loop(hours=168)
+    @tasks.loop(seconds=10)
+    async def send_message(self):
+        msg = str(self.manager)
+        channel = await self.fetch_channel(globals.TEST_CHANNEL)
+        await channel.send(msg)
 
-
+        with open("questions.txt", "wb") as f:
+            pickle.dump(self.manager, f)
+        
 def main():
     # set up logging
     logger = logging.getLogger('discord')
@@ -64,14 +65,23 @@ def main():
     try:
         token = os.environ["DISCORD_TOKEN"]
     except KeyError:
-        print("Token not found. Please set your environment variable properly. Exiting.")
+        print("Token not found. Please set your environment variable properly. See README. Exiting.")
         exit()
     
     # choose intents
     intents = discord.Intents.default()
 
-    # start bot
+    # make bot object
     client = Client(intents=intents)
+
+    # load existing question manager, if any
+    with open("questions.txt", "rb") as f:
+        try:
+            client.manager = pickle.load(f)
+        except EOFError:
+            pass
+
+    # start bot
     client.run(token)
 
 if __name__ == "__main__":
