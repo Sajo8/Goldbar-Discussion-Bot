@@ -63,7 +63,7 @@ def main():
 
     # set up environment token
     try:
-        token = os.environ["DISCORD_TOKEN"]
+        token = os.environ["GOLDBAR_BOT_TOKEN"]
     except KeyError:
         print("Token not found. Please set your environment variable properly. See README. Exiting.")
         exit()
