@@ -1,4 +1,10 @@
-TEST_MODE: bool = True
+import os
+
+try:
+    TEST_MODE: bool = bool(os.environ["GOLDBAR_BOT_TEST_MODE"])
+except KeyError as e:
+    print(f"Token {e} not found. Please set your environment variable properly. See README. Exiting.")
+    exit()
 
 TEST_CHANNEL: int = 791471427277553735
 ACTUAL_CHANNEL: int = 0

@@ -72,7 +72,7 @@ class Client(discord.Client):
         with open("manager.txt", "wb") as f:
             pickle.dump(self.manager, f)
 
-    
+
     async def on_raw_reaction_remove(self, reaction: RawReaction):
         if reaction.event_type != "REACTION_REMOVE":
             return
@@ -100,7 +100,6 @@ class Client(discord.Client):
                 pickle.dump(self.manager, f)
     
 def main():
-    global logger
     # set up logging
     logger = logging.getLogger('discord')
     logger.setLevel(logging.DEBUG)
@@ -108,11 +107,11 @@ def main():
     handler.setFormatter(logging.Formatter('%(asctime)s:%(levelname)s:%(name)s: %(message)s'))
     logger.addHandler(handler)
 
-    # set up environment token
+    # set up environment tokens
     try:
         token = os.environ["GOLDBAR_BOT_TOKEN"]
-    except KeyError:
-        print("Token not found. Please set your environment variable properly. See README. Exiting.")
+    except KeyError as e:
+        print(f"Token {e} not found. Please set your environment variable properly. See README. Exiting.")
         exit()
     
     intents = discord.Intents.default() # choose intents
