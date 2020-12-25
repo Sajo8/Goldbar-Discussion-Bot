@@ -8,5 +8,7 @@ Goldbar-Discussion-Bot
    2. view channels, send msgs, embed links, read msg history, add reactions
 3. Set environment variable `GOLDBAR_BOT_TOKEN` to the client secret obtained from the "Bot" page
    1. [(For me)](https://discord.com/developers/applications/791466142760960001/bot)
-4. Set environment variable `GOLDBAR_BOT_TEST_MODE` to a value of `True` or `False`.
+4. Set environment variable `GOLDBAR_BOT_TEST_MODE` to a value of `0` or `1`.
+   1. 0 - False, meaning it will run in production mode
+   2. 1 - True, meaning it will run in test mode
 5. Run `main.py`
