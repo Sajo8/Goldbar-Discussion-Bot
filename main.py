@@ -93,7 +93,10 @@ class Client(discord.Client):
                 await asyncio.sleep(globals.ACTUAL_MESSAGE_DELAY_S)
 
             msg = str(self.manager)
-            channel = await self.fetch_channel(globals.TEST_CHANNEL)
+            if globals.TEST_MODE:
+                channel = await self.fetch_channel(globals.TEST_CHANNEL)
+            else:
+                channel = await self.fetch_channel(globals.ACTUAL_CHANNEL)
             await channel.send(msg)
 
             with open("manager.txt", "wb") as f:
