@@ -1,6 +1,8 @@
 import os
 
 try:
+    # convert "1" to 1 to True
+    # convert "0" to 0 to False
     TEST_MODE: bool = bool(int(os.environ["GOLDBAR_BOT_TEST_MODE"]))
 except KeyError as e:
     print(f"Token {e} not found. Please set your environment variable properly. See README. Exiting.")

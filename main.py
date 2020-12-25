@@ -15,6 +15,10 @@ logger: logging.Logger
 
 class Client(discord.Client):
 
+    # TODO
+    # have people DM the bot, then the bot DMs me, and I react to the question in the DM with the bot
+    # which i guess I should have a way to toggle off "who asked the question" if they want to be anonymous
+
     manager: DiscussionQuestionManager = DiscussionQuestionManager()
 
     async def on_ready(self):
