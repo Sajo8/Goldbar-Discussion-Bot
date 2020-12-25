@@ -19,10 +19,12 @@ class DiscussionQuestionManager:
     """
 
     discussion_questions: List[DiscussionQuestion]
+    notifiees: List[int]
 
     # this has to be done in order to make sure Pickle actually saves it
     def __init__(self):
         self.discussion_questions = [] 
+        self.notifiees = []
 
     def __str__(self) -> str:
         # ensure we have some questions
@@ -37,7 +39,12 @@ class DiscussionQuestionManager:
             {question.content}
 
             Submitted by <@{question.author}> on {question.date}
+
+            <@{globals.KINJO_ID}>
             """
+            for n in self.notifiees:
+                response += f"<@{n}> "
+            
             return dedent(response)
         
         # list is empty, no questions
@@ -54,3 +61,10 @@ class DiscussionQuestionManager:
     
     def add_question_from_msg(self, m: Message) -> None:
         self.add_question(DiscussionQuestion(m))
+
+    
+    def change_notifiee(self, n: int) -> None:
+        if n in self.notifiees:
+            self.notifiees.remove(n) # remove them if they're already added
+        else:
+            self.notifiees.append(n) # add them if they're not already added
