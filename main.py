@@ -1,6 +1,7 @@
+import globals
+
 from discussion_question import DiscussionQuestion
 from discord.ext.commands.context import Context
-import globals
 from discussion_question_manager import DiscussionQuestionManager
 
 from textwrap import dedent
@@ -13,12 +14,7 @@ from discord import RawReactionActionEvent as RawReaction
 import os
 import asyncio
 
-# set up environment tokens
-try:
-    token = os.environ["GOLDBAR_BOT_TOKEN"]
-except KeyError as e:
-    print(f"Token {e} not found. Please set your environment variable properly. See README. Exiting.")
-    exit()
+token = os.environ["GOLDBAR_BOT_TOKEN"]
 
 bot = commands.Bot(command_prefix=".", intents=discord.Intents.default())
 manager: DiscussionQuestionManager = DiscussionQuestionManager()
