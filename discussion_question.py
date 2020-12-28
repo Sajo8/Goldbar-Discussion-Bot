@@ -1,4 +1,3 @@
-from operator import truediv
 from discord import Message
 
 class DiscussionQuestion:
@@ -11,7 +10,7 @@ class DiscussionQuestion:
     def __init__(self, msg: Message) -> None:
         self.author = msg.author.id
         self.content = msg.content.replace(".submit ", "")
-        self.date = msg.created_at.strftime("%d %b %Y")
+        self.date = msg.created_at.strftime("%d %b %Y @ %I:%M%p UTC")
         self.verified = False
         self.verify_msg_id = 0
     
