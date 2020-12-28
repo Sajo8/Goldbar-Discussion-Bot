@@ -20,16 +20,17 @@ except KeyError as e:
     print(f"Token {e} not found. Please set your environment variable properly. See README. Exiting.")
     exit()
 
-bot = commands.Bot(command_prefix=".", description='".submit your-question-here', intents=discord.Intents.default())
+bot = commands.Bot(command_prefix=".", intents=discord.Intents.default())
+
+# load existing question manager, if any
 manager: DiscussionQuestionManager = DiscussionQuestionManager()
-with open("manager.txt", "rb") as f: # load existing question manager, if any
+with open("manager.txt", "rb") as f: 
     try:
         manager = pickle.load(f)
     except EOFError:
         pass
 
 # TODO
-# which i guess I should have a way to toggle off "who asked the question" if they want to be anonymous
 # time should mention the timezone
 
 @bot.event
@@ -41,6 +42,7 @@ async def on_ready():
 async def submit(ctx: Context):
     question = DiscussionQuestion(ctx.message)
     manager.add_question(question)
+    await ctx.send("Submission received!")
 
     if globals.TEST_MODE:
         kinjo = await bot.fetch_user(globals.SAJO_ID)
@@ -58,10 +60,20 @@ async def submit(ctx: Context):
     sent_msg: Message = await kinjo.send(dedent(message))
     question.add_verify_id(sent_msg.id)
 
-# people react to message to add/remove themself from the list of people to be notified
-# if they are already added, they are removed. else they are added.
-async def change_notifiee(reaction: RawReaction):
+@bot.command()  #.anon off, on
+async def anon(ctx: Context, arg: str = ""):
+    if arg == "":
+        await ctx.send(f"Anonymous status: {manager.anonymous}")
+    elif arg == "on":
+        manager.anonymous = True
+        await ctx.send(f"New anonymous status: {manager.anonymous}")
+    elif arg == "off":
+        manager.anonymous = False
+        await ctx.send(f"New anonymous status: {manager.anonymous}")
 
+# people react to message to add/remove themself from the list of people to be notified
+# flag to see if they're being added / removed
+async def change_notifiee(reaction: RawReaction, add: bool):
     # if we're in test mode 
     if globals.TEST_MODE:
         # check if the msg is the same as the designated test one
@@ -74,7 +86,10 @@ async def change_notifiee(reaction: RawReaction):
             return
 
     if reaction.user_id != globals.KINJO_ID: # don't care if kinjo's reacting, he will always be notified
-        self.manager.change_notifiee(reaction.user_id)
+        if add:
+            manager.add_notifiee(reaction.user_id)
+        else:
+            manager.remove_notifiee(reaction.user_id)
     
 async def add_question(reaction: RawReaction):
     # if we're testing, allow me and kinjo
@@ -99,7 +114,7 @@ async def on_raw_reaction_add(reaction: RawReaction):
         return
     
     if reaction.emoji.name == "kaneko_ok":
-        await change_notifiee(reaction)
+        await change_notifiee(reaction, True)
     
     if reaction.emoji.name == "✅":
         await add_question(reaction)
@@ -114,11 +129,11 @@ async def on_raw_reaction_remove(reaction: RawReaction):
         return
     
     if reaction.emoji.name == "kaneko_ok":
-        await self.change_notifiee(reaction)
+        await change_notifiee(reaction, False)
 
     # save updated manager to file
     with open("manager.txt", "wb") as f:
-        pickle.dump(self.manager, f)
+        pickle.dump(manager, f)
 
 
 async def start_message_loop():
