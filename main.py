@@ -21,25 +21,27 @@ except KeyError as e:
     exit()
 
 bot = commands.Bot(command_prefix=".", intents=discord.Intents.default())
-
-# load existing question manager, if any
 manager: DiscussionQuestionManager = DiscussionQuestionManager()
-with open("manager.txt", "rb") as f: 
-    try:
-        manager = pickle.load(f)
-    except EOFError:
-        pass
 
-# TODO
-# time should mention the timezone
+# if we're in production, load existing manager
+# otherwise, we overwrite it every time
+if not globals.TEST_MODE:
+    with open("manager.txt", "rb") as f: 
+        try:
+            manager = pickle.load(f)
+        except EOFError:
+            pass
 
 @bot.event
 async def on_ready():
     print("--------\nREADY!!\n--------")
     await start_message_loop()
 
-@bot.command()
-async def submit(ctx: Context):
+@bot.command(
+    help = "Usage: \n.submit your question goes here!",
+    brief = "Submit your question"
+)
+async def submit(ctx: Context, your_question = ""):
     question = DiscussionQuestion(ctx.message)
     manager.add_question(question)
     await ctx.send("Submission received!")
@@ -60,28 +62,34 @@ async def submit(ctx: Context):
     sent_msg: Message = await kinjo.send(dedent(message))
     question.add_verify_id(sent_msg.id)
 
-@bot.command()  #.anon off, on
-async def anon(ctx: Context, arg: str = ""):
-    if arg == "":
+@bot.command(
+    help = "Usage: \n.anon \n.anon off \n.anon on \n\nJust .anon will show the current status. \nOnly Kinjo can use this",
+    brief = "Show/hide author's name"
+) 
+async def anon(ctx: Context, new_mode = ""):
+    if globals.TEST_MODE:
+        if ctx.author.id not in globals.ALLOWED_IDS:
+            return
+    else: 
+        if ctx.author.id != globals.KINJO_ID:
+            return
+    
+    if new_mode == "":
         await ctx.send(f"Anonymous status: {manager.anonymous}")
-    elif arg == "on":
+    elif new_mode == "on":
         manager.anonymous = True
         await ctx.send(f"New anonymous status: {manager.anonymous}")
-    elif arg == "off":
+    elif new_mode == "off":
         manager.anonymous = False
         await ctx.send(f"New anonymous status: {manager.anonymous}")
 
 # people react to message to add/remove themself from the list of people to be notified
 # flag to see if they're being added / removed
 async def change_notifiee(reaction: RawReaction, add: bool):
-    # if we're in test mode 
     if globals.TEST_MODE:
-        # check if the msg is the same as the designated test one
         if reaction.message_id != globals.TEST_REACTION_MSG_ID:
             return
-    # otherwise
     else: 
-        # check if it's the same as the designated real one
         if reaction.message_id != globals.ACTUAL_REACTION_MSG_ID:
             return
 
