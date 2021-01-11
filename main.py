@@ -1,3 +1,8 @@
+from asyncio.exceptions import CancelledError
+from asyncio.tasks import Task
+from typing import Coroutine
+from datetime import datetime
+
 import globals
 
 from discussion_question import DiscussionQuestion
@@ -15,9 +20,12 @@ import os
 import asyncio
 
 token = os.environ["GOLDBAR_BOT_TOKEN"]
+print(f"Test Mode: {globals.TEST_MODE}")
 
 bot = commands.Bot(command_prefix=".", intents=discord.Intents.default())
 manager: DiscussionQuestionManager = DiscussionQuestionManager()
+
+cancelled: bool = False
 
 # if we're in production, load existing manager
 # otherwise, we overwrite it every time
@@ -27,6 +35,39 @@ if not globals.TEST_MODE:
             manager = pickle.load(f)
         except EOFError:
             pass
+
+def get_sleep_task():
+    """
+    Returns bot_sleep Task if it exists, else returns None
+    """
+    for t in asyncio.all_tasks():
+        print(t)
+        print("")
+        if type(t) is Task:
+            c: Coroutine = t.get_coro()
+            if c.__name__ == bot_sleep.__name__:
+                return t
+    return None
+
+async def cancel_question():
+    """
+    Cancel bot_sleep task if it exists
+    """
+    t = get_sleep_task()
+    try:
+        if t:
+            print("before wait")
+            asyncio.wait_for(t.cancel())
+            print("after wait")
+            cancelled = True
+            return True
+        else:
+            print("didnt exist")
+            return False
+    except asyncio.TimeoutError:
+        print("couldnt cancel ")
+        cancelled = False
+        return False
 
 @bot.event
 async def on_ready():
@@ -78,6 +119,42 @@ async def anon(ctx: Context, new_mode = ""):
     elif new_mode == "off":
         manager.anonymous = False
         await ctx.send(f"New anonymous status: {manager.anonymous}")
+
+@bot.command(
+    help = "Usage: .cancel",
+    brief = "Cancel posting of the next question"
+)
+async def cancel(ctx: Context):
+    res = await cancel_question()
+    if res:
+        await ctx.send("Cancelled posting of next question!")
+    else:
+        await ctx.send("Failed to cancel, please try again.")
+    
+
+@bot.command()
+async def p(ctx):
+    print(asyncio.all_tasks())
+
+
+@bot.command(
+    help = "Usage: \n.reschedule 02/04/21 18:07\nDate format: MM/DD/YY HH:MM",
+    brief = "Reschedule next question"
+)
+async def reschedule(ctx: Context, new_date, time):
+    print(ctx.args)
+    print(new_date)
+    print(time)
+
+    date: datetime = datetime.strptime(new_date, "%m/%d/%y %H:%M")
+    now: datetime = datetime.now()
+
+    delay = (date - now).total_seconds()
+    await cancel_question()
+    # cancelled = false
+    # print(delay)
+    # await bot_sleep(delay)
+
 
 # people react to message to add/remove themself from the list of people to be notified
 # flag to see if they're being added / removed
@@ -140,22 +217,48 @@ async def on_raw_reaction_remove(reaction: RawReaction):
         pickle.dump(manager, f)
 
 
+## bot event loop
+
+async def bot_sleep(delay = None):
+    print("bs:", cancelled)
+    try:
+        print("being slept")
+        if not delay:
+            delay = globals.TEST_MESSAGE_DELAY_S if globals.TEST_MODE else globals.ACTUAL_MESSAGE_DELAY_S
+        await asyncio.sleep(delay)
+    except CancelledError:
+        print("cancelled")
+
+async def send_message():
+    print("m:", cancelled)
+
+    msg = str(manager)
+    channel = await bot.fetch_channel(globals.TEST_CHANNEL) if globals.TEST_MODE else await bot.fetch_channel(globals.ACTUAL_CHANNEL)
+    await channel.send(msg)
+
+    with open("manager.txt", "wb") as f:
+        pickle.dump(manager, f)
+
+
 async def start_message_loop():
     while True:
-        if globals.TEST_MODE:
-            await asyncio.sleep(globals.TEST_MESSAGE_DELAY_S)
-        else:
-            await asyncio.sleep(globals.ACTUAL_MESSAGE_DELAY_S)
+        print("l:", cancelled)
+        if cancelled: 
+            break
 
-        msg = str(manager)
-        if globals.TEST_MODE:
-            channel = await bot.fetch_channel(globals.TEST_CHANNEL)
-        else:
-            channel = await bot.fetch_channel(globals.ACTUAL_CHANNEL)
-        await channel.send(msg)
-
-        with open("manager.txt", "wb") as f:
-            pickle.dump(manager, f)
+        # only sleep if we're not already sleeping
+        if not get_sleep_task():
+            print(" we r  not sleeping")
+            await bot_sleep()
+        await send_message()
+        
 
 # start bot
 bot.run(token)
+
+########################################
+## figure out why get_sleep_task() isn't working
+### for some reason the sleep task isn't showing up anymore??
+# ensure .cancel works
+# ensure .reschedule works
+#### for reschedule, check if the newly added time works (it should)
