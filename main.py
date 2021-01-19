@@ -26,6 +26,7 @@ bot = commands.Bot(command_prefix=".", intents=discord.Intents.default())
 manager: DiscussionQuestionManager = DiscussionQuestionManager()
 
 cancelled: bool = False
+sleep_task: Task = None
 
 # if we're in production, load existing manager
 # otherwise, we overwrite it every time
@@ -36,24 +37,21 @@ if not globals.TEST_MODE:
         except EOFError:
             pass
 
-def get_sleep_task():
+def is_sleeping():
     """
     Returns bot_sleep Task if it exists, else returns None
     """
-    for t in asyncio.all_tasks():
-        print(t)
-        print("")
-        if type(t) is Task:
-            c: Coroutine = t.get_coro()
-            if c.__name__ == bot_sleep.__name__:
-                return t
+    print("sleeping:", sleep_task)
+
     return None
 
 async def cancel_question():
     """
     Cancel bot_sleep task if it exists
     """
-    t = get_sleep_task()
+    is_sleeping()
+
+    t = is_sleeping()
     try:
         if t:
             print("before wait")
@@ -220,17 +218,26 @@ async def on_raw_reaction_remove(reaction: RawReaction):
 ## bot event loop
 
 async def bot_sleep(delay = None):
+    global sleep_task
+
     print("bs:", cancelled)
     try:
         print("being slept")
         if not delay:
             delay = globals.TEST_MESSAGE_DELAY_S if globals.TEST_MODE else globals.ACTUAL_MESSAGE_DELAY_S
-        await asyncio.sleep(delay)
+
+        print(sleep_task)
+        
+        sleep_task = asyncio.create_task(asyncio.sleep(delay))
+        await sleep_task
+
+        print(sleep_task)
+        exit()
     except CancelledError:
         print("cancelled")
 
 async def send_message():
-    print("m:", cancelled)
+    # print("m:", cancelled)
 
     msg = str(manager)
     channel = await bot.fetch_channel(globals.TEST_CHANNEL) if globals.TEST_MODE else await bot.fetch_channel(globals.ACTUAL_CHANNEL)
@@ -242,13 +249,13 @@ async def send_message():
 
 async def start_message_loop():
     while True:
-        print("l:", cancelled)
+        # print("l:", cancelled)
         if cancelled: 
             break
 
         # only sleep if we're not already sleeping
-        if not get_sleep_task():
-            print(" we r  not sleeping")
+        if not is_sleeping():
+            print("we r  not sleeping")
             await bot_sleep()
         await send_message()
         
@@ -257,8 +264,15 @@ async def start_message_loop():
 bot.run(token)
 
 ########################################
-## figure out why get_sleep_task() isn't working
-### for some reason the sleep task isn't showing up anymore??
+
+# in progress
+# <Task pending name='Task-12' coro=<sleep() running at c:\users\sajo\appdata\local\programs\python\python38\lib\asyncio\tasks.py:648> wait_for=<Future pending cb=[<TaskWakeupMethWrapper object at 0x0000016002FEBB80>()]> cb=[<TaskWakeupMethWrapper object at 0x0000016002ECCB20>()]>
+
+#over
+# <Task finished name='Task-12' coro=<sleep() done, defined at c:\users\sajo\appdata\local\programs\python\python38\lib\asyncio\tasks.py:630> result=None>
+
+# see Task documentation to see if it's pending or finished and use that check if we're sleeping or done slepenig?
+
 # ensure .cancel works
 # ensure .reschedule works
 #### for reschedule, check if the newly added time works (it should)
