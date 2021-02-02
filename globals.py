@@ -4,7 +4,7 @@ try:
     # convert "1" to 1 to True
     # convert "0" to 0 to False
     TEST_MODE: bool = bool(int(os.environ["GOLDBAR_BOT_TEST_MODE"]))
-    os.environ["GOLDBAR_BOT_TOKEN"] # not used, but tested here so that we don't need to in main.py
+    os.environ["GOLDBAR_BOT_TOKEN"]  # not used, but tested here so that we don't need to in main.py
 except KeyError as e:
     print(f"Token {e} not found. Please set your environment variable properly. See README. Exiting.")
     exit()
@@ -20,5 +20,5 @@ ALLOWED_IDS: list = [KINJO_ID, SAJO_ID]
 TEST_REACTION_MSG_ID: int = 791826753462075412
 ACTUAL_REACTION_MSG_ID: int = 791829415810039828
 
-TEST_MESSAGE_DELAY_S = 20
+TEST_MESSAGE_DELAY_S = 5  # 20
 ACTUAL_MESSAGE_DELAY_S = 604800
