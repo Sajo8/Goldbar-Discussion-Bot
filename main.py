@@ -1,6 +1,6 @@
 from asyncio.exceptions import CancelledError, InvalidStateError
 from asyncio.tasks import Task
-from datetime import datetime
+from datetime import datetime, timedelta
 
 import globals
 
@@ -140,21 +140,38 @@ async def resume(ctx: Context):
 
 
 @bot.command(
-    help="Usage: \n.reschedule 02/04/21 18:07\nDate format: MM/DD/YY HH:MM\n\nWill also resume posting of questions if previous cancelled",
+    help="Usage: \n.reschedule 02/04/2021 18:07\nDate format: MM/DD/YYYY HH:MM\n\nWill also resume posting of questions if previous cancelled\n\nOnly Kinjo can use this",
     brief="Reschedule next question",
 )
 async def reschedule(ctx: Context, new_date, new_time):
-    date = datetime.strptime(new_date, "%m/%d/%y").date()
-    time = datetime.strptime(new_time, "%H:%M").time()
+    if globals.TEST_MODE:
+        if ctx.author.id not in globals.ALLOWED_IDS:
+            return
+    else:
+        if ctx.author.id != globals.KINJO_ID:
+            return
+    
+    try:
+        date = datetime.strptime(new_date, "%m/%d/%Y").date()
+        time = datetime.strptime(new_time, "%H:%M").time()
+    except Exception as e: # they messe dup formatting somehow
+        await ctx.send(f"Error! You did something wrong: {e}")
+        return
 
     date: datetime = datetime.combine(date, time)
     now: datetime = datetime.now()
+    
+    if not (date > now): # scheduled date is before today
+        await ctx.send("Error! You can't schedule a message for the past!")
+        return
+    
+    planned_date: timedelta = date - now
+    delay = planned_date.total_seconds()
 
-    delay = (date - now).total_seconds()
-
+    formatted_date = (now + planned_date).strftime("%m/%d/%Y, %H:%M:%S")
+    await ctx.send(f"Successfully rescheduled! Will post next question on the specified date and time.\nPlanned time: {formatted_date}")
+    
     cancel_posting()
-
-    await ctx.send("Successfully rescheduled! Will post next question on the specified date.")
 
     await bot_sleep(delay)
     await send_message()
